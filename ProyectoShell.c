@@ -22,6 +22,24 @@ Para salir del programa en ejecuci�n, pulsar Control+D
 #define MAG "\e[1;35m"
 #define RESET "\e[0m"
 
+job* processList;
+
+void manejador(int senal){
+  int stat, info, size;
+  pid_t pid;
+  job* aux;
+  size = list_size(processList);
+
+  aux = get_item_bypos(processList,size);
+  if(aux != NULL)
+    printf("Comando %s tamaño %d", aux->command, size);
+
+  //waitpid(aux->pgid, &stat, WNOHANG | WCONTINUED | WUNTRACED);
+
+
+
+
+}
 
 
 // --------------------------------------------
@@ -38,15 +56,17 @@ int main(void) {
     enum status status_res; // Estado procesado por analyze_status()
     int info;		      // Informaci�n procesada por analyze_status()
 
+    ignore_terminal_signals();//Ignoro señales
+    signal(SIGCHLD, manejador);//handler 
+    processList = new_list("Lista de comandos");//creo la lista de comandos
 
-    char pwd[MAX_LINE];
+    char pwd[MAX_LINE];       //Aqui guardo el directorio actual
     if(getcwd(pwd,MAX_LINE) == NULL)
         fprintf(stderr, "error=%s\n", strerror(errno));
 
     while (1) { // El programa termina cuando se pulsa Control+D dentro de get_command()
-
-      ignore_terminal_signals();
-      printf(MAG "COMANDO:" RESET BLUE "%s->" RESET, pwd);
+      
+      printf(MAG "COMANDO:" RESET BLUE "%s-> " RESET, pwd);
       fflush(stdout);
       get_command(inputBuffer, MAX_LINE, args, &background); // Obtener el pr�ximo comando
       if (args[0]==NULL) continue; // Si se introduce un comando vac�o, no hacemos nada
@@ -63,32 +83,46 @@ int main(void) {
           exit(0);
       }else{
         pid_fork = fork();
-        if(pid_fork == 0){
-          new_process_group(getpid());
 
-          if(!background) {//primer plano
+        //Hijo
+        if(pid_fork == 0){
+          new_process_group(getpid());//creo su grupo de procesos
+
+          if(!background) {//primer plano, toma el terminal
         	  set_terminal(getpid());
           }
 
-          restore_terminal_signals();
+          restore_terminal_signals();//restablece las señales
           if(execvp(args[0],args)==-1) {
-        	status_res = analyze_status(status,&info);
+        	  status_res = analyze_status(status,&info);
             printf("Error. Comando %s no encontrado\n",args[0]);
             exit(-1);
           }
 
+        //Padre
         }else{
 
           if(background){
             printf("Comando %s ejecutando en segundo plano con pid %d\n\n",args[0],pid_fork);
+            
             continue;
-          }if(!background){
-          
-            waitpid(pid_fork,&status,0);printf("\n");
+          }else{//foreground, toma el terminal
+            
+            pid_wait = waitpid(pid_fork,&status, WUNTRACED | WNOHANG | WCONTINUED);
+            printf("\n");
             set_terminal(getpid());
             enum status estado = analyze_status(status,&info);
-            if(estado == FINALIZADO)
-              printf("Comando %s ejecutado en primer plano con pid %d.Estado %s. Info: %d\n", args[0],pid_fork,status_strings[estado],info);
+            job* cmd = new_job(pid_fork,args[0],SEGUNDOPLANO);
+            add_job(processList,cmd);
+            if(estado == FINALIZADO){
+              printf("Comando %s ejecutado en primer plano con pid %d. Estado %s. Info: %d\n", args[0],pid_fork,status_strings[estado],info);
+            }else if(estado == SUSPENDIDO){
+              
+            }else{//estado == REANUDADO
+
+            }
+
+
           }
         }
       }
