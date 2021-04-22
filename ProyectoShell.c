@@ -26,22 +26,45 @@ job* processList;
 
 void manejador(int senal){
 
-  int stat, info, size, ok;
+  int stat, info, size;
+  enum status status;
   pid_t pid;
   job* aux;
   size = list_size(processList);
 
-  ok = 1;
-  for(aux = processList->next; aux != NULL && ok; aux = aux->next){
-    if(aux->ground == SEGUNDOPLANO){
-      pid = waitpid(aux->pgid,&stat, WNOHANG);
-      //printf("\nComando %s ejecutado en segundo plano con PID %d ha concluido\n", aux->command,aux->pgid);
-      delete_job(processList,aux);
-      //ok = 0;
-    }else if(aux->ground == DETENIDO){
-      printf("comando suspendido");
-    }
+  
+  for(int i = size; i >= 1; i--){
+    
+    aux = get_item_bypos(processList,i);
+    pid = waitpid(aux->pgid,&stat,WUNTRACED|WNOHANG|WCONTINUED);
+    
+    
+    if(aux->pgid == pid){
+      status = analyze_status(stat,&info);
+      block_SIGCHLD();
+      //printf("--%d %d %d--", aux->ground,status, stat);
+      
+      if(status == FINALIZADO && !WIFCONTINUED(stat)){//&& !WIFCONTINUED(stat)
+        printf("\nComando %s ejecutado en segundo plano con PID %d ha concluido su ejecucion\n",aux->command,aux->pgid);
+        delete_job(processList,aux);
+      }else if(status == REANUDADO){
+        printf("Comando %s ejecutado en segundo plano con PID %d ha reanudado su ejecucion\n", aux->command,aux->pgid);
+        aux->ground = PRIMERPLANO;
+        //delete_job(processList,aux);
+      }else if(status == SUSPENDIDO){
+        printf("Comando %s ejecutado en segundo plano con PID %d ha suspendido su ejecucion\n", aux->command,aux->pgid);
+        aux->ground = DETENIDO;
+      }
+      else if(WIFCONTINUED(stat)){
+        printf("Comando %s con PID %d reanudado\n", aux->command, aux->pgid);
+        aux->ground = PRIMERPLANO;
+       // delete_job(processList,aux);
+      }
+    unblock_SIGCHLD();
+    
+
   }
+}
 }
 
 
@@ -57,7 +80,7 @@ int main(void) {
     int pid_fork, pid_wait; // pid para el proceso creado y esperado
     int status;             // Estado que devuelve la funci�n wait
     enum status status_res; // Estado procesado por analyze_status()
-    int info;		      // Informaci�n procesada por analyze_status()
+    int info;		            // Informaci�n procesada por analyze_status()
 
     ignore_terminal_signals();//Ignoro señales
     signal(SIGCHLD, manejador);//handler 
@@ -83,6 +106,11 @@ int main(void) {
             
       }else if(strcmp(args[0],"logout")==0){
           exit(0);
+      }else if(strcmp(args[0],"jobs")==0){
+        if(processList->next == NULL)
+          printf("No hay tareas\n");
+        else
+          print_job_list(processList);
       }else{
         pid_fork = fork();
 
@@ -103,24 +131,35 @@ int main(void) {
         //Padre
         }else{
 
+         // new_process_group(pid_fork);
+
           if(background){
             printf("Comando %s ejecutando en segundo plano con pid %d\n\n",args[0],pid_fork);
+            block_SIGCHLD();
             job* cmd = new_job(pid_fork,args[0],SEGUNDOPLANO);
             add_job(processList,cmd);
+            unblock_SIGCHLD();
             continue;
-          }else{//foreground, toma el terminal
-            pid_wait = waitpid(pid_fork,&status, WUNTRACED | WCONTINUED);
+          }else{//foreground
             
+            set_terminal(pid_fork);
             printf("\n");
+            pid_wait = waitpid(pid_fork,&status, WUNTRACED|WCONTINUED);
             set_terminal(getpid());
             enum status estado = analyze_status(status,&info);
             if(estado == FINALIZADO ){
-              printf("Comando %s ejecutado en primer plano con pid %d. Estado %s. Info: %d\n", args[0],pid_fork,status_strings[estado],info);
+              printf("Comando %s ejecutado en primer plano con PID %d. Estado %s. Info: %d\n", args[0],pid_fork,status_strings[estado],info);
             }else if(estado == SUSPENDIDO){
+              printf("Comando %s ejecutado en primer plano con PID %d suspendido\n",args[0],pid_fork);
+              block_SIGCHLD();
               job* cmd = new_job(pid_fork,args[0],DETENIDO);
               add_job(processList,cmd);
-            }else{//estado == REANUDADO
-              
+              unblock_SIGCHLD();
+            }else if(estado == REANUDADO) {//estado == REANUDADO
+
+              printf("Comando %s ejecutado en primer plano con PID %d ha sido reanudado\n",args[0],pid_fork);
+            }else{
+
             }
 
 
