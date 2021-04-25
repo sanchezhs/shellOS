@@ -96,6 +96,7 @@ int main(void) {
       get_command(inputBuffer, MAX_LINE, args, &background); // Obtener el pr�ximo comando
       if (args[0]==NULL) continue; // Si se introduce un comando vac�o, no hacemos nada
       
+      //Comandos internos
       if(strcmp(args[0],"cd")==0){
 
           if(chdir(args[1])==-1){
@@ -111,6 +112,8 @@ int main(void) {
           printf("No hay tareas\n");
         else
           print_job_list(processList);
+
+      //Comandos externos
       }else{
         pid_fork = fork();
 
