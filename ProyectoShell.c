@@ -56,7 +56,7 @@ void manejador(int senal){
         aux->ground = DETENIDO;
       }
       else if(WIFCONTINUED(stat)){
-        printf("Comando %s con PID %d reanudado\n", aux->command, aux->pgid);
+        printf("Comando %s ejecutado en segundo plano con PID %d ha reanudado su ejecucion\n", aux->command, aux->pgid);
         aux->ground = PRIMERPLANO;
        // delete_job(processList,aux);
       }
@@ -113,6 +113,75 @@ int main(void) {
         else
           print_job_list(processList);
 
+      }else if(strcmp(args[0],"fg")==0){
+        if(empty_list(processList)){
+
+          printf("No hay tareas\n");
+
+        }else{
+          
+          job* aux;
+          
+          if(args[1] == 0)//se coge el primero de la lista
+          aux = get_item_bypos(processList,1);
+          else
+          aux = get_item_bypos(processList, atoi(args[1]));
+          
+
+          aux->ground = PRIMERPLANO;
+          set_terminal(aux->pgid);
+          if(killpg(aux->pgid,SIGCONT)==-1)
+            fprintf(stderr,"error=%s",strerror(errno));
+          waitpid(aux->pgid,&status,WUNTRACED);
+          set_terminal(getpid());
+
+          status_res = analyze_status(status,&info);
+
+          if(status_res == SUSPENDIDO){
+            printf("Comando %s con PID %d ha sido suspendido\n",aux->command,aux->pgid);
+            aux->ground = DETENIDO;
+          }else{
+            printf("Comando %s con PID %d finalizado con info %d\n",aux->command,aux->pgid,info);
+            delete_job(processList,aux);
+          }
+
+
+
+
+        }
+
+      }else if(strcmp(args[0],"bg")==0){
+        
+        if(empty_list(processList)){
+          printf("No hay tareas\n");
+        }else{
+          job* aux;
+          
+          if(args[1] == 0)//se coge el primero de la lista
+          aux = get_item_bypos(processList,1);
+          else
+          aux = get_item_bypos(processList, atoi(args[1]));
+
+          if(aux->ground == SEGUNDOPLANO)
+            printf("Comando %s con PID %d ya se encuentra en segundo plano\n",aux->command,aux->pgid);
+          else{
+            aux->ground = SEGUNDOPLANO;
+            killpg(aux->pgid,SIGCONT);
+            //set_terminal(getpid());
+
+          }
+
+          
+
+
+
+
+
+        }
+
+
+
+
       //Comandos externos
       }else{
         pid_fork = fork();
@@ -145,7 +214,7 @@ int main(void) {
             continue;
           }else{//foreground
             
-            set_terminal(pid_fork);
+           // set_terminal(pid_fork);
             printf("\n");
             pid_wait = waitpid(pid_fork,&status, WUNTRACED|WCONTINUED);
             set_terminal(getpid());
@@ -159,7 +228,7 @@ int main(void) {
               add_job(processList,cmd);
               unblock_SIGCHLD();
             }else if(estado == REANUDADO) {//estado == REANUDADO
-
+              set_terminal(pid_fork);
               printf("Comando %s ejecutado en primer plano con PID %d ha sido reanudado\n",args[0],pid_fork);
             }else{
 
