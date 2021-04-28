@@ -45,19 +45,19 @@ void manejador(int senal){
       //printf("--%d %d %d--", aux->ground,status, stat);
       
       if(status == FINALIZADO && !WIFCONTINUED(stat)){//&& !WIFCONTINUED(stat)
-        printf("\nComando %s ejecutado en segundo plano con PID %d ha concluido su ejecucion\n",aux->command,aux->pgid);
+        printf("\nComando %s ejecutado en segundo plano con PID %d ha concluido su ejecucion. Info %d\n",aux->command,aux->pgid,info);
         delete_job(processList,aux);
       }else if(status == REANUDADO){
         printf("Comando %s ejecutado en segundo plano con PID %d ha reanudado su ejecucion\n", aux->command,aux->pgid);
         aux->ground = PRIMERPLANO;
         //delete_job(processList,aux);
       }else if(status == SUSPENDIDO){
-        printf("Comando %s ejecutado en segundo plano con PID %d ha suspendido su ejecucion\n", aux->command,aux->pgid);
+        printf("Comando %s ejecutado en segundo plano con PID %d ha suspendido su ejecucion. Info %d\n", aux->command,aux->pgid,info);
         aux->ground = DETENIDO;
       }
       else if(WIFCONTINUED(stat)){
         printf("Comando %s ejecutado en segundo plano con PID %d ha reanudado su ejecucion\n", aux->command, aux->pgid);
-        aux->ground = PRIMERPLANO;
+        aux->ground = SEGUNDOPLANO;
        // delete_job(processList,aux);
       }
     unblock_SIGCHLD();
@@ -99,9 +99,12 @@ int main(void) {
       //Comandos internos
       if(strcmp(args[0],"cd")==0){
 
-          if(chdir(args[1])==-1){
+          if(args[1] == NULL)
+            chdir(getenv("HOME"));
+          else if(chdir(args[1])==-1){
             fprintf(stderr,"error %s\n", strerror(errno));
           }
+
           if(getcwd(pwd,MAX_LINE) == NULL)
             fprintf(stderr, "error=%s\n", strerror(errno));
             
