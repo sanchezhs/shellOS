@@ -115,7 +115,7 @@ int main(void) {
           printf("No hay tareas\n");
         else
           print_job_list(processList);
-
+        //continue;
       }else if(strcmp(args[0],"fg")==0){
         if(empty_list(processList)){
 
