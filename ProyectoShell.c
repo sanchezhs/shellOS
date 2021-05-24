@@ -54,11 +54,13 @@ void manejador(int senal){
       if(status == FINALIZADO && !WIFCONTINUED(stat)){//&& !WIFCONTINUED(stat)
         printf("\nComando %s ejecutado en segundo plano con PID %d ha concluido su ejecucion. Info %d\n",aux->command,aux->pgid,info);
         delete_job(processList,aux);
-      }else if(status == REANUDADO){
+      }
+      /*else if(status == REANUDADO){
         printf("Comando %s ejecutado en segundo plano con PID %d ha reanudado su ejecucion****\n", aux->command,aux->pgid);
         aux->ground = PRIMERPLANO;
         //delete_job(processList,aux);
-      }else if(status == SUSPENDIDO){
+      }*/
+      else if(status == SUSPENDIDO){
         printf("Comando %s ejecutado en segundo plano con PID %d ha suspendido su ejecucion. Info %d\n", aux->command,aux->pgid,info);
         aux->ground = DETENIDO;
       }else if(WIFCONTINUED(stat)){
