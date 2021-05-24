@@ -39,11 +39,9 @@ void manejador(int senal){
     aux = get_item_bypos(processList,i);
     pid = waitpid(aux->pgid,&stat,WUNTRACED|WNOHANG|WCONTINUED);
     
-    
     if(aux->pgid == pid){
       status = analyze_status(stat,&info);
       block_SIGCHLD();
-      
       
       if(status == FINALIZADO && !WIFCONTINUED(stat)){//&& !WIFCONTINUED(stat)
         printf("\nComando %s ejecutado en segundo plano con PID %d ha concluido su ejecucion. Info %d\n",aux->command,aux->pgid,info);
@@ -62,7 +60,6 @@ void manejador(int senal){
         }
         
     unblock_SIGCHLD();
-    
 
   }
 }
@@ -84,7 +81,6 @@ int get_internal_command(char* args[], int* status, enum status status_res, int*
         if(getcwd(pwd,MAX_LINE) == NULL)
           fprintf(stderr, "Error, %s\n", strerror(errno));
         
-        
     }else if(strcmp(args[0],"logout")==0){
         exit(0);
     }else if(strcmp(args[0],"jobs")==0){
@@ -93,8 +89,9 @@ int get_internal_command(char* args[], int* status, enum status status_res, int*
         printf("No hay tareas\n");
       else
         print_job_list(processList);
-      //continue;
+      
     }else if(strcmp(args[0],"fg")==0){
+
       used++;
       if(empty_list(processList)){
 
@@ -103,10 +100,8 @@ int get_internal_command(char* args[], int* status, enum status status_res, int*
       }else{
         
         job* aux;
-        
-        
+
         //se coge el primero de la lista
-         
         if(args[1] == 0){
           aux = get_item_bypos(processList,1);
           
@@ -115,8 +110,6 @@ int get_internal_command(char* args[], int* status, enum status status_res, int*
           return -1;
         } else
           aux = get_item_bypos(processList, atoi(args[1]));
-
-
 
         aux->ground = PRIMERPLANO;
         set_terminal(aux->pgid);
@@ -134,10 +127,6 @@ int get_internal_command(char* args[], int* status, enum status status_res, int*
           printf("Comando %s con PID %d finalizado con info %d\n",aux->command,aux->pgid,*info);
           delete_job(processList,aux);
         }
-
-
-
-
       }
 
     }else if(strcmp(args[0],"bg")==0){
@@ -164,20 +153,9 @@ int get_internal_command(char* args[], int* status, enum status status_res, int*
           //set_terminal(getpid());
 
         }
-
-        
-
-
-
-
-
       }
-
-
-
-
-    
     }
+
     return used;
 }
 
@@ -211,24 +189,24 @@ void get_external_command(char* args[], int* status, enum status status_res ,int
         job* cmd = new_job(*pid_fork,args[0],SEGUNDOPLANO);
         add_job(processList,cmd);
         unblock_SIGCHLD();
-        //continue;
+        
       }else{//foreground
         
-        // set_terminal(pid_fork);
+        
         printf("\n");
         *pid_wait = waitpid(*pid_fork,status, WUNTRACED|WCONTINUED);
         set_terminal(getpid());
         enum status estado = analyze_status(*status,info);
 
         if(estado == FINALIZADO ){
-          printf("Comando %s ejecutado en primer plano con PID %d. Estado %s. Info: %d\n", args[0],*pid_fork,status_strings[estado],*info);
+          printf("Comando %s ejecutado en primer plano con PID %d. Estado %s. Info: %d\n\n", args[0],*pid_fork,status_strings[estado],*info);
         }else if(estado == SUSPENDIDO){
           printf("Comando %s ejecutado en primer plano con PID %d suspendido\n",args[0],*pid_fork);
           block_SIGCHLD();
           job* cmd = new_job(*pid_fork,args[0],DETENIDO);
           add_job(processList,cmd);
           unblock_SIGCHLD();
-        }else if(estado == REANUDADO) {//estado == REANUDADO
+        }else if(estado == REANUDADO) {
           set_terminal(*pid_fork);
           printf("Comando %s ejecutado en primer plano con PID %d ha sido reanudado\n",args[0],*pid_fork);
         }
