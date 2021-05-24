@@ -1,11 +1,10 @@
+
 /*------------------------------------------------------------------------------
 Proyecto Shell de UNIX. Sistemas Operativos
 Grados I. Inform�tica, Computadores & Software
 Dept. Arquitectura de Computadores - UMA
-
 Algunas secciones est�n inspiradas en ejercicios publicados en el libro
 "Fundamentos de Sistemas Operativos", Silberschatz et al.
-
 Para compilar este programa: gcc ProyectoShell.c ApoyoTareas.c -o MiShell
 Para ejecutar este programa: ./MiShell
 Para salir del programa en ejecuci�n, pulsar Control+D
@@ -17,13 +16,22 @@ Para salir del programa en ejecuci�n, pulsar Control+D
 #include <string.h>  // Para comparar cadenas de cars. (a partir de la tarea 2)
 
 
-#define RED "\e[1;31m"
+#define RED "\e[0;31m"
 #define BLUE "\e[1;34m"
 #define MAG "\e[1;35m"
 #define RESET "\e[0m"
-#define GREEN "\e[0;32m"
+#define GREEN "\e[1;32m"
 
 job* processList;
+
+void print_error(char* msg, char* flags){
+    if(msg == NULL)
+      fprintf(stderr, RED "Error, %s\n" RESET, strerror(errno));
+    else if (flags == NULL)
+      printf(RED "%s\n" RESET, msg);
+    else 
+      printf(RED "%s %s\n" RESET, msg, flags);
+}
 
 void manejador(int senal){
 
@@ -47,7 +55,7 @@ void manejador(int senal){
         printf("\nComando %s ejecutado en segundo plano con PID %d ha concluido su ejecucion. Info %d\n",aux->command,aux->pgid,info);
         delete_job(processList,aux);
       }else if(status == REANUDADO){
-        printf("Comando %s ejecutado en segundo plano con PID %d ha reanudado su ejecucion\n", aux->command,aux->pgid);
+        printf("Comando %s ejecutado en segundo plano con PID %d ha reanudado su ejecucion****\n", aux->command,aux->pgid);
         aux->ground = PRIMERPLANO;
         //delete_job(processList,aux);
       }else if(status == SUSPENDIDO){
@@ -57,7 +65,7 @@ void manejador(int senal){
         printf("Comando %s ejecutado en segundo plano con PID %d ha reanudado su ejecucion\n", aux->command, aux->pgid);
         aux->ground = SEGUNDOPLANO;
        // delete_job(processList,aux);
-        }
+      }
         
     unblock_SIGCHLD();
 
@@ -75,11 +83,12 @@ int get_internal_command(char* args[], int* status, enum status status_res, int*
         if(args[1] == NULL)
           chdir(getenv("HOME"));
         else if(chdir(args[1])==-1){
-          fprintf(stderr,"Error, %s\n", strerror(errno));
+          print_error(0,0);
         }
 
         if(getcwd(pwd,MAX_LINE) == NULL)
-          fprintf(stderr, "Error, %s\n", strerror(errno));
+          print_error(0,0);
+          
         
     }else if(strcmp(args[0],"logout")==0){
         exit(0);
@@ -106,15 +115,17 @@ int get_internal_command(char* args[], int* status, enum status status_res, int*
           aux = get_item_bypos(processList,1);
           
         } else if(atoi(args[1]) > list_size(processList)){
-          printf("Error, no exista esa tarea\n");
+          print_error("Error, no existe esa tarea",0);
           return -1;
         } else
           aux = get_item_bypos(processList, atoi(args[1]));
 
         aux->ground = PRIMERPLANO;
         set_terminal(aux->pgid);
+
         if(killpg(aux->pgid,SIGCONT)==-1)
-          fprintf(stderr,"Error, %s",strerror(errno));
+          print_error(0,0);
+
         waitpid(aux->pgid,status,WUNTRACED);
         set_terminal(getpid());
 
@@ -130,9 +141,12 @@ int get_internal_command(char* args[], int* status, enum status status_res, int*
       }
 
     }else if(strcmp(args[0],"bg")==0){
+
       used++;
+
       if(empty_list(processList)){
         printf("No hay tareas\n");
+
       }else{
         
         job* aux;
@@ -140,7 +154,7 @@ int get_internal_command(char* args[], int* status, enum status status_res, int*
         if(args[1] == 0){
           aux = get_item_bypos(processList,1);
         } else if(atoi(args[1]) > list_size(processList)){
-          printf("Error, no exista esa tarea\n");
+          print_error("Error, no existe esa tarea",0);
           return -1;
         } else
           aux = get_item_bypos(processList, atoi(args[1]));
@@ -150,8 +164,6 @@ int get_internal_command(char* args[], int* status, enum status status_res, int*
         else{
           aux->ground = SEGUNDOPLANO;
           killpg(aux->pgid,SIGCONT);
-          //set_terminal(getpid());
-
         }
       }
     }
@@ -174,7 +186,8 @@ void get_external_command(char* args[], int* status, enum status status_res ,int
 
       restore_terminal_signals();//restablece las señales
       if(execvp(args[0],args)==-1) {
-        printf("Error. Comando %s no encontrado\n",args[0]);
+        print_error("Error, comando  no encontrado", args[0]);
+        
         exit(-1);
       }
 
@@ -216,10 +229,11 @@ void get_external_command(char* args[], int* status, enum status status_res ,int
     }
 }
 
+
+
 // --------------------------------------------
 //                     MAIN          
 // --------------------------------------------
-
 int main(void) {
     char inputBuffer[MAX_LINE]; // B�fer que alberga el comando introducido
     int background;         // Vale 1 si el comando introducido finaliza con '&'
@@ -236,7 +250,8 @@ int main(void) {
 
     char pwd[MAX_LINE];       //Aqui guardo el directorio actual
     if(getcwd(pwd,MAX_LINE) == NULL)
-        fprintf(stderr, "Error, %s\n", strerror(errno));
+        print_error(0,0);
+        
 
     while (1) { // El programa termina cuando se pulsa Control+D dentro de get_command()
 
@@ -245,12 +260,8 @@ int main(void) {
       get_command(inputBuffer, MAX_LINE, args, &background); // Obtener el pr�ximo comando
       if (args[0]==NULL) continue; // Si se introduce un comando vac�o, no hacemos nada
       
-      
       if(get_internal_command(args, &status, status_res, &info, pwd) == 0)
         get_external_command(args, &status, status_res, &info, &background, &pid_fork, &pid_wait);
-     
 
     } 
 }
-
-
