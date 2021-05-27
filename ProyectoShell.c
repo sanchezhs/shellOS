@@ -11,7 +11,7 @@ Para salir del programa en ejecuci�n, pulsar Control+D
 ------------------------------------------------------------------------------*/
 
 #include "ApoyoTareas.h" // Cabecera del m�dulo de apoyo ApoyoTareas.c
- 
+
 #define MAX_LINE 256 // 256 caracteres por l�nea para cada comando es suficiente
 #include <string.h>  // Para comparar cadenas de cars. (a partir de la tarea 2)
 
@@ -23,6 +23,7 @@ Para salir del programa en ejecuci�n, pulsar Control+D
 #define GREEN "\e[1;32m"
 
 job* processList;
+
 
 void print_error(char* msg, char* flags){
     if(msg == NULL)
@@ -54,25 +55,19 @@ void manejador(int senal){
       if(status == FINALIZADO && !WIFCONTINUED(stat)){//&& !WIFCONTINUED(stat)
         printf("\nComando %s ejecutado en segundo plano con PID %d ha concluido su ejecucion. Info %d\n",aux->command,aux->pgid,info);
         delete_job(processList,aux);
-      }
-      /*else if(status == REANUDADO){
-        printf("Comando %s ejecutado en segundo plano con PID %d ha reanudado su ejecucion****\n", aux->command,aux->pgid);
-        aux->ground = PRIMERPLANO;
-        //delete_job(processList,aux);
-      }*/
-      else if(status == SUSPENDIDO){
+      } else if(status == SUSPENDIDO){
         printf("Comando %s ejecutado en segundo plano con PID %d ha suspendido su ejecucion. Info %d\n", aux->command,aux->pgid,info);
         aux->ground = DETENIDO;
       }else if(WIFCONTINUED(stat)){
-        printf("Comando %s ejecutado en segundo plano con PID %d ha reanudado su ejecucion\n", aux->command, aux->pgid);
+        printf("\nComando %s ejecutado en segundo plano con PID %d ha reanudado su ejecucion\n", aux->command, aux->pgid);
         aux->ground = SEGUNDOPLANO;
-       // delete_job(processList,aux);
       }
         
     unblock_SIGCHLD();
 
+    }
   }
-}
+  
 }
 
 int get_internal_command(char* args[], int* status, enum status status_res, int* info, char pwd[]){
@@ -80,7 +75,7 @@ int get_internal_command(char* args[], int* status, enum status status_res, int*
     int used = 0;
     
     //Comandos internos
-    if(strcmp(args[0],"cd")==0){
+    if(!strcmp(args[0],"cd")){
         used++;
         if(args[1] == NULL)
           chdir(getenv("HOME"));
@@ -92,18 +87,20 @@ int get_internal_command(char* args[], int* status, enum status status_res, int*
           print_error(0,0);
           
         
-    }else if(strcmp(args[0],"logout")==0){
+    }else if(!strcmp(args[0],"logout")){
         exit(0);
-    }else if(strcmp(args[0],"jobs")==0){
+    }else if(!strcmp(args[0],"jobs")){
+
       used++;
       if(processList->next == NULL)
         printf("No hay tareas\n");
       else
         print_job_list(processList);
       
-    }else if(strcmp(args[0],"fg")==0){
+    }else if(!strcmp(args[0],"fg")){
 
       used++;
+      block_SIGCHLD();
       if(empty_list(processList)){
 
         printf("No hay tareas\n");
@@ -141,9 +138,10 @@ int get_internal_command(char* args[], int* status, enum status status_res, int*
           delete_job(processList,aux);
         }
       }
+      unblock_SIGCHLD();
+    }else if(!strcmp(args[0],"bg")){
 
-    }else if(strcmp(args[0],"bg")==0){
-
+      block_SIGCHLD();
       used++;
 
       if(empty_list(processList)){
@@ -168,6 +166,7 @@ int get_internal_command(char* args[], int* status, enum status status_res, int*
           killpg(aux->pgid,SIGCONT);
         }
       }
+      unblock_SIGCHLD();
     }
 
     return used;
@@ -194,9 +193,7 @@ void get_external_command(char* args[], int* status, enum status status_res ,int
       }
 
     //Padre
-    }else{
-
-      // new_process_group(pid_fork);
+    }else {
 
       if(*background){
         printf("Comando %s ejecutando en segundo plano con pid %d\n\n",args[0],*pid_fork);
@@ -262,7 +259,7 @@ int main(void) {
       get_command(inputBuffer, MAX_LINE, args, &background); // Obtener el pr�ximo comando
       if (args[0]==NULL) continue; // Si se introduce un comando vac�o, no hacemos nada
       
-      if(get_internal_command(args, &status, status_res, &info, pwd) == 0)
+      if(!get_internal_command(args, &status, status_res, &info, pwd))
         get_external_command(args, &status, status_res, &info, &background, &pid_fork, &pid_wait);
 
     } 
